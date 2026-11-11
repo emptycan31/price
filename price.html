@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>価格ノート</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9eef5;--paper:#fcfdff;--tab:#d9e2ee;--rule:#b4c8e2;--ink:#27303f;--sub:#6b7a90;--hit:#cfe8c8;--accent:#2f5f9e;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181e;--paper:#1e242c;--tab:#2a323d;--rule:#3d4a5c;--ink:#e3e9f2;--sub:#8e9db3;--hit:#2f4d34;--accent:#8fb6ee;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14181e;--paper:#1e242c;--tab:#2a323d;--rule:#3d4a5c;--ink:#e3e9f2;--sub:#8e9db3;--hit:#2f4d34;--accent:#8fb6ee;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;font-size:16px;padding:16px 12px 40px}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:20px;font-weight:600;margin:4px 4px 12px}
+.tabs{display:flex;gap:4px;overflow-x:auto;align-items:flex-end;padding:0 2px 1px;margin-bottom:-1px;position:relative;z-index:1}
+.tabs button.tab{font:inherit;color:var(--sub);background:var(--tab);border:1px solid var(--rule);border-bottom:0;border-radius:10px 10px 0 0;padding:8px 16px;white-space:nowrap;cursor:pointer}
+.tabs button.tab.on{background:var(--paper);color:var(--ink);font-weight:600;padding-bottom:10px;margin-bottom:-1px;position:relative}
+.addcat{display:flex;gap:4px;margin-left:6px;padding-bottom:4px}
+input{font:inherit;color:inherit}
+.addcat input{width:8.5em;border:0;border-bottom:1px solid var(--rule);background:transparent;padding:4px 2px}
+button.sm{font:inherit;font-size:14px;color:var(--accent);background:transparent;border:0;padding:4px 6px;cursor:pointer;white-space:nowrap}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sheet{background:var(--paper);border:1px solid var(--rule);border-radius:0 8px 8px 8px;padding:12px 14px 14px}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;margin-bottom:10px}
+.bar input{border:0;border-bottom:1px solid var(--rule);background:transparent;font-weight:600;font-size:17px;padding:2px;min-width:0;flex:0 1 calc((100% - 8em)*.6)}
+table{border-collapse:collapse;width:100%;table-layout:fixed}
+th,td{border:0;border-left:1px solid var(--rule);border-bottom:1px solid var(--rule);height:44px;padding:0 6px;text-align:left;font-weight:400;overflow:hidden}
+th:last-child,td:last-child{border-right:1px solid var(--rule)}
+th{font-size:14px;color:var(--sub);height:38px;border-bottom-width:2px;text-align:center}
+col.c1{width:40.65%}col.c2{width:40.65%}col.c3{width:18.7%}col.cx{width:2.6em}
+td input{width:100%;border:0;background:transparent;padding:6px 2px;min-width:0}
+td.p input{text-align:right;font-variant-numeric:tabular-nums}
+tr.hit td.s,tr.hit td.p{background:var(--hit)}
+.x{text-align:center;padding:0}
+.x button{font:inherit;color:var(--sub);background:transparent;border:0;cursor:pointer;padding:6px}
+.x button.arm,button.arm{color:#c0392b}
+.add{margin:0 0 6px}.add td{border:0;height:40px}
+.add input{border:0;border-bottom:1px solid var(--rule);background:transparent;padding:4px 2px;min-width:0;width:100%}
+.add input[name=price]{text-align:right}
+.pager{display:flex;gap:2px;align-items:center;justify-content:center;margin-top:10px;color:var(--sub);font-size:14px}
+.pager button{font:inherit;min-width:32px;height:32px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ink);cursor:pointer}
+.pager button.on{border-color:var(--rule);background:var(--tab);font-weight:600}
+.pager button:disabled{opacity:.35;cursor:default}
+.note{color:var(--sub);font-size:13px;margin:10px 4px 0}
+.plus{font:inherit;color:var(--sub);background:transparent;border:0;cursor:pointer;padding:6px}
+.mv{margin-left:auto;white-space:nowrap;font-size:14px;color:var(--sub)}
+.mv button:disabled{opacity:.3;cursor:default}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>価格ノート</h1>
+  <div class="tabs" id="tabs"></div>
+  <div class="sheet" id="sheet"></div>
+  <p class="note">1行に商品・店舗・価格を記録します。同じ商品名が2行以上あると、一番安い行が緑になります。1ページ10行まで、超えるとページが増えます。</p>
+</div>
+<script>
+const PER=10,KEY='pricenote-v1';
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.cats||!S.cats.length){
+  S={cur:null,cats:[{id:uid(),name:'食品',entries:[
+    {id:uid(),item:'牛乳 1L',store:'A店',price:'198'},{id:uid(),item:'牛乳 1L',store:'B店',price:'215'},{id:uid(),item:'牛乳 1L',store:'C店',price:'188'}]}]};
+}
+S.cats.forEach(c=>{if(!c.entries){c.entries=[];(c.items||[]).forEach(it=>(c.stores||[]).forEach(s=>{const p=(it.prices||{})[s.id];if(p)c.entries.push({id:uid(),item:it.name,store:s.name,price:p})}));delete c.items;delete c.stores}});
+S.cur=S.cur||S.cats[0].id;
+const pages={};let keep='';
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const cur=()=>S.cats.find(c=>c.id===S.cur)||S.cats[0];
+const num=v=>{const n=parseFloat(String(v||'').normalize('NFKC').replace(/[,，円¥]/g,''));return isNaN(n)?null:n};
+const key=e=>e.item.trim().normalize('NFKC').toLowerCase();
+function sorted(c){
+  const g=new Map();
+  c.entries.forEach(e=>{const k=key(e),n=num(e.price);let o=g.get(k);if(!o){o={i:g.size,name:e.item,min:null};g.set(k,o)}if(n!==null&&(o.min===null||n<o.min))o.min=n});
+  const rank=new Map([...g.keys()].map((k,i)=>[k,i]));
+  return c.entries.slice().sort((a,b)=>{const d=rank.get(key(a))-rank.get(key(b));if(d)return d;
+    const pa=num(a.price),pb=num(b.price);return ((pa===null)-(pb===null))||(pa-pb)||0});
+}
+function hits(c){
+  const g={};c.entries.forEach(e=>{const n=num(e.price);if(n!==null)(g[key(e)]=g[key(e)]||[]).push([e.id,n])});
+  const h=new Set();
+  Object.values(g).forEach(a=>{if(a.length<2)return;const m=Math.min(...a.map(x=>x[1]));a.forEach(x=>{if(x[1]===m)h.add(x[0])})});
+  return h;
+}
+function render(){
+  const c=cur(),all=sorted(c),h=hits(c);
+  document.getElementById('tabs').innerHTML=S.cats.map(k=>`<button class="tab${k.id===c.id?' on':''}" data-act="tab" data-id="${k.id}">${esc(k.name)}</button>`).join('')+
+    `<form class="addcat" data-form="cat"><input name="n" placeholder="新規作成" aria-label="新規作成"><button class="plus" aria-label="タブを追加">＋</button></form>`;
+  const pc=Math.max(1,Math.ceil(all.length/PER));
+  const pg=Math.min(Math.max(pages[c.id]||0,0),pc-1);pages[c.id]=pg;
+  const rows=all.slice(pg*PER,pg*PER+PER);
+  const uniq=f=>[...new Set(c.entries.map(e=>e[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('');
+  let t=`<div class="bar"><input id="cname" value="${esc(c.name)}" aria-label="分類名"><button class="sm" data-act="delcat">タブ削除</button><span class="mv">タブ移動 <button class="sm" data-act="mv" data-d="-1" ${S.cats.indexOf(c)===0?'disabled':''} aria-label="タブを左へ">◀</button><button class="sm" data-act="mv" data-d="1" ${S.cats.indexOf(c)===S.cats.length-1?'disabled':''} aria-label="タブを右へ">▶</button></span></div>@@ADD@@
+  <table><colgroup><col class="c1"><col class="c2"><col class="c3"><col class="cx"></colgroup>
+  <thead><tr><th>商品</th><th>店舗</th><th>価格</th><th></th></tr></thead><tbody>`;
+  t+=rows.map(e=>`<tr data-id="${e.id}"${h.has(e.id)?' class="hit"':''}><td><input data-f="item" list="dl-item" value="${esc(e.item)}" aria-label="商品"></td><td class="s"><input data-f="store" list="dl-store" value="${esc(e.store)}" aria-label="店舗"></td><td class="p"><input data-f="price" inputmode="decimal" value="${esc(e.price)}" aria-label="価格"></td><td class="x"><button data-act="del" data-id="${e.id}" aria-label="この行を削除">×</button></td></tr>`).join('');
+  for(let i=rows.length;i<PER;i++)t+='<tr><td></td><td></td><td></td><td></td></tr>';
+  t+=`</tbody></table>`;
+  if(pc>1){
+    t+=`<div class="pager"><button data-act="pg" data-p="${pg-1}" ${pg===0?'disabled':''} aria-label="前のページ">‹</button>`;
+    for(let i=0;i<pc;i++)t+=`<button class="${i===pg?'on':''}" data-act="pg" data-p="${i}">${i+1}</button>`;
+    t+=`<button data-act="pg" data-p="${pg+1}" ${pg===pc-1?'disabled':''} aria-label="次のページ">›</button></div>`;
+  }
+  const addf=`<form class="add" data-form="entry"><table><colgroup><col class="c1"><col class="c2"><col class="c3"><col class="cx"></colgroup><tr><td><input name="item" list="dl-item" placeholder="商品" aria-label="商品" value="${esc(keep)}"></td><td><input name="store" list="dl-store" placeholder="店舗" aria-label="店舗"></td><td><input name="price" inputmode="decimal" placeholder="価格" aria-label="価格"></td><td class="x"><button class="sm" aria-label="追加">＋</button></td></tr></table></form>
+  <datalist id="dl-item">${uniq('item')}</datalist><datalist id="dl-store">${uniq('store')}</datalist>`;
+  document.getElementById('sheet').innerHTML=t.replace('@@ADD@@',()=>addf);syncW();
+}
+function syncW(){const a=document.querySelector('.addcat input'),n=document.getElementById('cname');if(a&&n)a.style.width=n.offsetWidth+'px'}
+window.addEventListener('resize',syncW);
+function arm(btn,label){
+  if(btn.classList.contains('arm'))return true;
+  const old=btn.textContent;btn.classList.add('arm');btn.textContent=label;
+  setTimeout(()=>{if(btn.isConnected){btn.classList.remove('arm');btn.textContent=old}},3000);
+  return false;
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const c=cur(),a=b.dataset.act;
+  if(a==='tab'){S.cur=b.dataset.id;keep='';}
+  else if(a==='pg'){pages[c.id]=+b.dataset.p;}
+  else if(a==='mv'){const i=S.cats.indexOf(c),j=i+ +b.dataset.d;if(j<0||j>=S.cats.length)return;[S.cats[i],S.cats[j]]=[S.cats[j],S.cats[i]];
+    setTimeout(()=>{const t=document.querySelector('.tab.on');if(t)t.scrollIntoView({inline:'nearest',block:'nearest'})},0);}
+  else if(a==='del'){if(!arm(b,'削除?'))return;c.entries=c.entries.filter(x=>x.id!==b.dataset.id);}
+  else if(a==='delcat'){if(!arm(b,'本当に削除'))return;S.cats=S.cats.filter(k=>k.id!==c.id);
+    if(!S.cats.length)S.cats.push({id:uid(),name:'新しい分類',entries:[]});S.cur=S.cats[0].id;keep='';}
+  save();render();
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target;
+  if(f.dataset.form==='cat'){const n=f.n.value.trim();if(!n)return;const k={id:uid(),name:n,entries:[]};S.cats.push(k);S.cur=k.id;keep='';}
+  else{
+    const item=f.item.value.trim();if(!item){f.item.focus();return}
+    const c=cur(),en={id:uid(),item,store:f.store.value.trim(),price:f.price.value.trim()};
+    c.entries.push(en);keep=item;
+    pages[c.id]=Math.floor(sorted(c).findIndex(x=>x.id===en.id)/PER);
+    save();render();
+    document.querySelector('.add input[name=store]').focus();return;
+  }
+  save();render();
+});
+document.addEventListener('change',e=>{
+  const t=e.target,c=cur();
+  if(t.id==='cname'){c.name=t.value.trim()||c.name;save();document.querySelectorAll('.tab.on').forEach(x=>x.textContent=c.name);return}
+  const tr=t.closest('tr[data-id]');if(!tr||!t.dataset.f)return;
+  const en=c.entries.find(x=>x.id===tr.dataset.id);
+  en[t.dataset.f]=t.value.trim();save();
+  const h=hits(c);document.querySelectorAll('tr[data-id]').forEach(r=>r.classList.toggle('hit',h.has(r.dataset.id)));
+});
+render();
+</script>
+</body>
+</html>
